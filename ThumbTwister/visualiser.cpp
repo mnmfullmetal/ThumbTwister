@@ -6,6 +6,8 @@
 #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
 
+Color VERY_DARKGRAY = { 30, 30, 30, 255 };
+
 enum CalibState
 {
     IDLE,
@@ -92,7 +94,7 @@ bool CheckCalibrateLeft()
 void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float adjLeftY, float rawRightX, float rawRightY, float adjRightX, float adjRightY)
 {
     BeginDrawing();
-    ClearBackground(DARKGRAY);
+    ClearBackground(VERY_DARKGRAY);
 
     // --- VISUAL CLAMP  ---
     auto ClampToCircle = [](float& x, float& y) 
