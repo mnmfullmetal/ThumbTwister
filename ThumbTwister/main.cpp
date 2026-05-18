@@ -4,10 +4,15 @@
 #include <windows.h>
 #include <ViGEmClient.h>
 
+#pragma comment(lib, "setupapi.lib")
+#pragma comment(lib, "winmm.lib")
+
 using namespace GameInput::v3;
 
-#pragma comment(lib, "setupapi.lib")
-
+void StartVisualiser();
+void DrawControllerState(float leftX, float leftY, float rightX, float rightY);
+bool VisualiserShouldClose();
+void StopVisualiser();
 
 
 int main()
@@ -34,30 +39,30 @@ int main()
 	gameInput->SetFocusPolicy(GameInputEnableBackgroundInput);
 
 	std::cout << "Listening for input)\n\n";
-	IGameInputReading* reading = nullptr;
 
-	while (true)
+	StartVisualiser();
+	while (!VisualiserShouldClose())
 	{
-		if(SUCCEEDED(gameInput->GetCurrentReading(GameInputKindGamepad, nullptr, &reading)))
-		{
-			GameInputGamepadState state{};
-			if (reading->GetGamepadState(&state))
-			{
-				std::cout << "Left Thumbstick: (" << state.leftThumbstickX << ", " << state.leftThumbstickY << ")\n";
-				std::cout << "Right Thumbstick: (" << state.rightThumbstickX << ", " << state.rightThumbstickY << ")\n";
-				XUSB_REPORT report;
-				XUSB_REPORT_INIT(&report);
-				report.sThumbLX = (SHORT)(state.leftThumbstickX * 32767.0f);
-				report.sThumbLY = (SHORT)(state.leftThumbstickY * 32767.0f);
-				report.sThumbRX = (SHORT)(state.rightThumbstickX * 32767.0f);
-				report.sThumbRY = (SHORT)(state.rightThumbstickY * 32767.0f);
 
-				if (virtualPad) vigem_target_x360_update(client, virtualPad, report);
-			}
+		IGameInputReading* reading = nullptr;
+		GameInputGamepadState state{};
+
+		if (SUCCEEDED(gameInput->GetCurrentReading(GameInputKindGamepad, nullptr, &reading)))
+		{
+			reading->GetGamepadState(&state);
+
+			XUSB_REPORT report;
+			XUSB_REPORT_INIT(&report);
+			report.sThumbLX = (SHORT)(state.leftThumbstickX * 32767.0f);
+			report.sThumbLY = (SHORT)(state.leftThumbstickY * 32767.0f);
+			report.sThumbRX = (SHORT)(state.rightThumbstickX * 32767.0f);
+			report.sThumbRY = (SHORT)(state.rightThumbstickY * 32767.0f);
+
+			if (virtualPad) vigem_target_x360_update(client, virtualPad, report);
 			reading->Release();
 
+			DrawControllerState(state.leftThumbstickX, state.leftThumbstickY, state.rightThumbstickX, state.rightThumbstickY);
 		}
-		Sleep(16);
 	}
 
 	if (virtualPad)
@@ -75,6 +80,7 @@ int main()
 		gameInput->Release();
 	}
 
+	StopVisualiser();
 	return 0;
 }
 
