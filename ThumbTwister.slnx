@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="ThumbTwister/ThumbTwister.vcxproj" />
+  <Project Path="ThumbTwister/ThumbTwister.vcxproj" Id="945ee92c-6735-491b-bfd4-19fa8492bd13" />
 </Solution>
