@@ -160,12 +160,12 @@ struct CalibrationManager
             else if (targetDeg == 0.0f) { SetCalibrationUI("PUSH RIGHT", false); target_x = 1.0f;  target_y = 0.0f; }
 
             //-- ERROR NORMALISATISION ---
-            if (mag > 0.85f)
+            if (mag > 0.90f)
             {
                 capturedPoints.push_back(Vector2{ x, y });
                 std::cout << "Captured Point [" << currentIdx + 1 << "/20]: X = " << x << ", Y = " << y << "\n";
 
-                // mormalise the raw cartesian coordinates
+                // normalise the raw cartesian coordinates
                 float norm_x = x / mag;
                 float norm_y = y / mag;
 
