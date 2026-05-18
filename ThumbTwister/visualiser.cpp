@@ -94,6 +94,7 @@ void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float a
     BeginDrawing();
     ClearBackground(DARKGRAY);
 
+    // --- VISUAL CLAMP  ---
     auto ClampToCircle = [](float& x, float& y) 
     {
         float mag = sqrtf(x * x + y * y);
@@ -113,6 +114,7 @@ void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float a
     ClampToCircle(drawableRawRightX, drawableRawRightY);
     ClampToCircle(drawableAdjRightX, drawableAdjRightY);
 
+    // --- DYNAMIC SCALING ---
     float screenWidth = (float)GetScreenWidth();
     float screenHeight = (float)GetScreenHeight();
     float circleRadius = screenHeight * 0.20f;
@@ -121,6 +123,7 @@ void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float a
     float rightCircleCentreX = screenWidth * 0.75f;
     float rightCircleCentreY = screenHeight * 0.45f;
 
+    // --- LEFT STICK ---
     float leftBoxX = 40.0f;
     float leftBoxY = 40.0f;
     float leftBoxWidth = (screenWidth / 2.0f) - 60.0f;
@@ -130,6 +133,7 @@ void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float a
     DrawCircleLines((int)leftCircleCentreX, (int)leftCircleCentreY, circleRadius, LIGHTGRAY);
     DrawCircleLines((int)leftCircleCentreX, (int)leftCircleCentreY, circleRadius * 0.2f, Fade(YELLOW, 0.2f));
 
+    // calc ring tracking distance and clamp it to stop squircle bulge
     float distanceLeft = sqrtf(rawLeftX * rawLeftX + rawLeftY * rawLeftY) * circleRadius;
     if (distanceLeft > circleRadius) distanceLeft = circleRadius;
 
@@ -142,6 +146,7 @@ void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float a
         DrawRing(Vector2{ leftCircleCentreX, leftCircleCentreY }, distanceLeft - 1.5f, distanceLeft + 1.5f, minAngleLeft, maxAngleLeft, 32, WHITE);
     }
 
+    // hide dots during calibration if this stick is active, otherwise, draw them
     bool hideLeft = (currentState == CALIBRATING && calibratingLeft);
     if (!hideLeft) 
     {
@@ -150,6 +155,7 @@ void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float a
     }
     else if (!needsCentre) 
     {
+        // draw the calib target quadrant
         float sectorStartAngle = 0, sectorEndAngle = 0;
         if (strstr(currentInstruction, "UP")) { sectorStartAngle = 225; sectorEndAngle = 315; }
         else if (strstr(currentInstruction, "DOWN")) { sectorStartAngle = 45; sectorEndAngle = 135; }
@@ -161,9 +167,10 @@ void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float a
     DrawText("LEFT STICK", (int)(leftCircleCentreX - 60), (int)(leftCircleCentreY - circleRadius - 40), 20, LIGHTGRAY);
     DrawText(TextFormat("RAW X: %0.4f", rawLeftX), (int)(leftCircleCentreX - circleRadius), (int)(leftCircleCentreY + circleRadius + 20), 20, RED);
     DrawText(TextFormat("RAW Y: %0.4f", rawLeftY), (int)(leftCircleCentreX - circleRadius), (int)(leftCircleCentreY + circleRadius + 50), 20, RED);
-    DrawText(TextFormat("SNP X: %0.4f", adjLeftX), (int)(leftCircleCentreX + 20), (int)(leftCircleCentreY + circleRadius + 20), 20, GREEN);
-    DrawText(TextFormat("SNP Y: %0.4f", adjLeftY), (int)(leftCircleCentreX + 20), (int)(leftCircleCentreY + circleRadius + 50), 20, GREEN);
+    DrawText(TextFormat("ADJ X: %0.4f", adjLeftX), (int)(leftCircleCentreX + 20), (int)(leftCircleCentreY + circleRadius + 20), 20, GREEN);
+    DrawText(TextFormat("ADJ Y: %0.4f", adjLeftY), (int)(leftCircleCentreX + 20), (int)(leftCircleCentreY + circleRadius + 50), 20, GREEN);
 
+    // --- RIGHT STICK ---
     float rightBoxX = (screenWidth / 2.0f) + 20.0f;
     float rightBoxY = 40.0f;
     float rightBoxWidth = (screenWidth / 2.0f) - 60.0f;
@@ -204,14 +211,16 @@ void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float a
     DrawText("RIGHT STICK", (int)(rightCircleCentreX - 60), (int)(rightCircleCentreY - circleRadius - 40), 20, LIGHTGRAY);
     DrawText(TextFormat("RAW X: %0.4f", rawRightX), (int)(rightCircleCentreX - circleRadius), (int)(rightCircleCentreY + circleRadius + 20), 20, BLUE);
     DrawText(TextFormat("RAW Y: %0.4f", rawRightY), (int)(rightCircleCentreX - circleRadius), (int)(rightCircleCentreY + circleRadius + 50), 20, BLUE);
-    DrawText(TextFormat("SNP X: %0.4f", adjRightX), (int)(rightCircleCentreX + 20), (int)(rightCircleCentreY + circleRadius + 20), 20, GREEN);
-    DrawText(TextFormat("SNP Y: %0.4f", adjRightY), (int)(rightCircleCentreX + 20), (int)(rightCircleCentreY + circleRadius + 50), 20, GREEN);
+    DrawText(TextFormat("ADJ X: %0.4f", adjRightX), (int)(rightCircleCentreX + 20), (int)(rightCircleCentreY + circleRadius + 20), 20, GREEN);
+    DrawText(TextFormat("ADJ Y: %0.4f", adjRightY), (int)(rightCircleCentreX + 20), (int)(rightCircleCentreY + circleRadius + 50), 20, GREEN);
 
+    // --- CROSSHAIRS --- 
     DrawLine((int)(leftCircleCentreX - circleRadius), (int)leftCircleCentreY, (int)(leftCircleCentreX + circleRadius), (int)leftCircleCentreY, Fade(LIGHTGRAY, 0.3f));
     DrawLine((int)leftCircleCentreX, (int)(leftCircleCentreY - circleRadius), (int)leftCircleCentreX, (int)(leftCircleCentreY + circleRadius), Fade(LIGHTGRAY, 0.3f));
     DrawLine((int)(rightCircleCentreX - circleRadius), (int)rightCircleCentreY, (int)(rightCircleCentreX + circleRadius), (int)rightCircleCentreY, Fade(LIGHTGRAY, 0.3f));
     DrawLine((int)rightCircleCentreX, (int)(rightCircleCentreY - circleRadius), (int)rightCircleCentreX, (int)(rightCircleCentreY + circleRadius), Fade(LIGHTGRAY, 0.3f));
 
+    // --- CAPTURED CALIB DOTS ---
     float targetCentreX = calibratingLeft ? leftCircleCentreX : rightCircleCentreX;
     float targetCentreY = calibratingLeft ? leftCircleCentreY : rightCircleCentreY;
     for (const auto& dot : calibrationDots)
@@ -222,6 +231,7 @@ void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float a
         DrawCircle((int)(targetCentreX + dotX * circleRadius), (int)(targetCentreY - dotY * circleRadius), 6, Fade(WHITE, 0.4f));
     }
 
+    // -- LEFT UI CONTROLS ---
     GuiToggle(Rectangle{ leftBoxX + 20, leftBoxY + 20, 96, 24 }, "Enable", &leftEnabled);
     if (GuiButton(Rectangle{ leftBoxX + leftBoxWidth - 116, leftBoxY + 20, 96, 24 }, "Calibrate"))
     {
@@ -243,6 +253,7 @@ void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float a
     }
     GuiEnable();
 
+    // -- RIGHT UI CONTROLS ---
     GuiToggle(Rectangle{ rightBoxX + 20, rightBoxY + 20, 96, 24 }, "Enable", &rightEnabled);
     if (GuiButton(Rectangle{ rightBoxX + rightBoxWidth - 116, rightBoxY + 20, 96, 24 }, "Calibrate"))
     {
@@ -264,6 +275,7 @@ void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float a
     }
     GuiEnable();
 
+    // --- TOP STATUS OVERLAY ---
     if (currentState == CALIBRATING)
     {
         const char* title = "CALIBRATION IN PROGRESS";

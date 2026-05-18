@@ -70,22 +70,29 @@ struct CalibrationManager
     float sumCosError = 0.0f;
     float sumSinError = 0.0f;
 
-    bool IsValidSequence() {
+    // -- CALIBRATION VALIDATION ---
+    bool IsValidSequence() 
+    {
+        // check for identical back-to-back inputs 
         for (size_t i = 1; i < targetAngles.size(); i++)
         {
             if (targetAngles[i] == targetAngles[i - 1]) return false;
         }
 
+        // check for predictable circles 
         for (size_t i = 2; i < targetAngles.size(); i++)
         {
+            // calculate the angle of the first turn
             float d1 = targetAngles[i - 1] - targetAngles[i - 2];
             while (d1 > 180.0f) d1 -= 360.0f;
             while (d1 < -180.0f) d1 += 360.0f;
 
+            // calculate the angle of the second turn
             float d2 = targetAngles[i] - targetAngles[i - 1];
             while (d2 > 180.0f) d2 -= 360.0f;
             while (d2 < -180.0f) d2 += 360.0f;
 
+            // if both turns are +90 or both are -90, it forms a predictable arc, fuck it off bro
             if (std::abs(d1) == 90.0f && d1 == d2)
             {
                 return false;
@@ -94,10 +101,12 @@ struct CalibrationManager
         return true;
     }
 
+    // triggered when the calib button is clicked
     void Start(bool left)
     {
         capturedPoints.clear();
 
+        // create target angle vectors for calibration input request 
         targetAngles.clear();
         for (int i = 0; i < 5; i++)
         {
@@ -112,9 +121,11 @@ struct CalibrationManager
         currentIdx = 0;
         step = WAITING_FOR_CENTRE;
 
+        // var to store vector components of angular error
         sumCosError = 0.0f;
         sumSinError = 0.0f;
 
+        // shuffle the directions for randomness
         std::random_device rd;
         std::mt19937 g(rd());
         do {
@@ -126,29 +137,35 @@ struct CalibrationManager
     {
         if (!active) return;
 
+        // get magnitude vector of thumbstick
         float mag = std::sqrtf(x * x + y * y);
 
+        // -- DEADZONE CHECK FOR RETURN TO CENTRE ---
         if (step == WAITING_FOR_CENTRE)
         {
             SetCalibrationUI("RETURN TO CENTER", true);
             if (mag < 0.2f) step = WAITING_FOR_PUSH;
         }
+        // capture when the stick is pushed 
         else if (step == WAITING_FOR_PUSH)
         {
             float targetDeg = targetAngles[currentIdx];
             float target_x = 0.0f;
             float target_y = 0.0f;
 
+            // set UI text based on the target angle and define ideal target vectors
             if (targetDeg == 90.0f) { SetCalibrationUI("PUSH UP", false);    target_x = 0.0f;  target_y = 1.0f; }
             else if (targetDeg == 270.0f) { SetCalibrationUI("PUSH DOWN", false);  target_x = 0.0f;  target_y = -1.0f; }
             else if (targetDeg == 180.0f) { SetCalibrationUI("PUSH LEFT", false);  target_x = -1.0f; target_y = 0.0f; }
             else if (targetDeg == 0.0f) { SetCalibrationUI("PUSH RIGHT", false); target_x = 1.0f;  target_y = 0.0f; }
 
+            //-- ERROR NORMALISATISION ---
             if (mag > 0.85f)
             {
                 capturedPoints.push_back(Vector2{ x, y });
                 std::cout << "Captured Point [" << currentIdx + 1 << "/20]: X = " << x << ", Y = " << y << "\n";
 
+                // mormalise the raw cartesian coordinates
                 float norm_x = x / mag;
                 float norm_y = y / mag;
 
@@ -160,6 +177,7 @@ struct CalibrationManager
 
                 currentIdx++;
 
+                // check if completed all directions for calib
                 if (currentIdx >= targetAngles.size())
                 {
                     Finish();
@@ -177,8 +195,10 @@ struct CalibrationManager
         float avgCos = sumCosError / (float)targetAngles.size();
         float avgSin = sumSinError / (float)targetAngles.size();
 
+        // convert the final averaged matrix back to polar degrees 
         float averageOffset = std::atan2f(avgSin, avgCos) * (180.0f / 3.14159265f);
 
+        //  invert the offset to correct it (if error is +5, move -5)
         if (isLeftStick)
         {
             SetLeftOffset(-averageOffset);
@@ -195,6 +215,7 @@ struct CalibrationManager
 
 int main()
 {
+    // --- VIGEM SETUP ---
     PVIGEM_CLIENT client = vigem_alloc();
     PVIGEM_TARGET vPad = nullptr;
     if (client && VIGEM_SUCCESS(vigem_connect(client)))
@@ -203,10 +224,12 @@ int main()
         vigem_target_add(client, vPad);
     }
 
+    // --- GAMEINPUT SETUP ---
     IGameInput* gameInput = nullptr;
     if (FAILED(GameInputCreate(&gameInput))) return -1;
     gameInput->SetFocusPolicy(GameInputEnableBackgroundInput);
 
+    // --- INITIALISE ENGINE ---
     CalibrationManager calib;
     StartVisualiser();
 
@@ -215,6 +238,7 @@ int main()
         IGameInputReading* reading = nullptr;
         GameInputGamepadState state = {};
 
+        // listen for calib button click on ui
         if (CheckCalibrateLeft()) calib.Start(true);
         if (CheckCalibrateRight()) calib.Start(false);
 
@@ -227,6 +251,7 @@ int main()
             float raw_rx = state.rightThumbstickX;
             float raw_ry = state.rightThumbstickY;
 
+            // feed the stick data to the calibration brain if its active
             if (calib.active)
             {
                 if (calib.isLeftStick) calib.Update(raw_lx, raw_ly);
@@ -234,6 +259,7 @@ int main()
                 SetCalibrationDots(calib.capturedPoints, calib.isLeftStick);
             }
 
+            // apply rotation offset based on slider or calibration
             float leftOffset = GetLeftOffset();
             float rightOffset = GetRightOffset();
             float adj_lx, adj_ly, adj_rx, adj_ry;
@@ -241,6 +267,7 @@ int main()
             ApplyRotation(raw_lx, raw_ly, leftOffset, adj_lx, adj_ly);
             ApplyRotation(raw_rx, raw_ry, rightOffset, adj_rx, adj_ry);
 
+            // send the adjusted values to virtual controller
             XUSB_REPORT report;
             XUSB_REPORT_INIT(&report);
             report.sThumbLX = (SHORT)(state.leftThumbstickX * 32767.0f);
@@ -251,6 +278,7 @@ int main()
             if (vPad) vigem_target_x360_update(client, vPad, report);
             reading->Release();
 
+            // draw to the screen
             DrawControllerState(raw_lx, raw_ly, adj_lx, adj_ly, raw_rx, raw_ry, adj_rx, adj_ry);
         }
     }
