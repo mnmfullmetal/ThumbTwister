@@ -1,8 +1,8 @@
+#include <windows.h>
+#include <GameInput.h>
+#include <ViGEmClient.h>
 #include <iostream>
 #include <cmath>
-#include <GameInput.h>
-#include <windows.h>
-#include <ViGEmClient.h>
 
 #pragma comment(lib, "GameInput.lib")
 #pragma comment(lib, "setupapi.lib")
@@ -13,7 +13,13 @@ using namespace GameInput::v3;
 void StartVisualiser();
 void StopVisualiser();
 bool VisualiserShouldClose();
-void DrawControllerState(float r_lx, float r_ly, float s_lx, float s_ly, float r_rx, float r_ry, float a_rx, float a_ry);
+void DrawControllerState(float r_lx, float r_ly, float s_lx, float s_ly, float r_rx, float r_ry, float s_rx, float s_ry);
+float GetLeftOffset();
+float GetRightOffset();
+void SetLeftOffset(float val);
+void SetRightOffset(float val);
+bool CheckCalibrateLeft();
+bool CheckCalibrateRight();
 
 void ApplyRotation(float raw_x, float raw_y, float offsetDeg, float& out_x, float& out_y)
 {
@@ -36,33 +42,26 @@ void ApplyRotation(float raw_x, float raw_y, float offsetDeg, float& out_x, floa
 int main()
 {
     PVIGEM_CLIENT client = vigem_alloc();
-    PVIGEM_TARGET virtualPad = nullptr;
+    PVIGEM_TARGET vPad = nullptr;
     if (client && VIGEM_SUCCESS(vigem_connect(client)))
     {
-        virtualPad = vigem_target_x360_alloc();
-        vigem_target_add(client, virtualPad);
-    }
-    else
-    {
-        std::cerr << "Failed to initialise ViGEmBus" << std::endl;
-        return -1;
+        vPad = vigem_target_x360_alloc();
+        vigem_target_add(client, vPad);
     }
 
     IGameInput* gameInput = nullptr;
-    if (FAILED(GameInputCreate(&gameInput)))
-    {
-        std::cerr << "Failed to create GameInput instance" << std::endl;
-        return -1;
-    }
+    if (FAILED(GameInputCreate(&gameInput))) return -1;
     gameInput->SetFocusPolicy(GameInputEnableBackgroundInput);
 
-    std::cout << "Listening for input...\n\n";
-
     StartVisualiser();
+
     while (!VisualiserShouldClose())
     {
         IGameInputReading* reading = nullptr;
-        GameInputGamepadState state{};
+        GameInputGamepadState state = {};
+
+        CheckCalibrateLeft();
+        CheckCalibrateRight();
 
         if (SUCCEEDED(gameInput->GetCurrentReading(GameInputKindGamepad, nullptr, &reading)))
         {
@@ -73,10 +72,12 @@ int main()
             float raw_rx = state.rightThumbstickX;
             float raw_ry = state.rightThumbstickY;
 
+            float leftOffset = GetLeftOffset();
+            float rightOffset = GetRightOffset();
             float adj_lx, adj_ly, adj_rx, adj_ry;
 
-            ApplyRotation(raw_lx, raw_ly, 15.0f, adj_lx, adj_ly);
-            ApplyRotation(raw_rx, raw_ry, 15.0f, adj_rx, adj_ry);
+            ApplyRotation(raw_lx, raw_ly, leftOffset, adj_lx, adj_ly);
+            ApplyRotation(raw_rx, raw_ry, rightOffset, adj_rx, adj_ry);
 
             XUSB_REPORT report;
             XUSB_REPORT_INIT(&report);
@@ -85,22 +86,12 @@ int main()
             report.sThumbRX = (SHORT)(state.rightThumbstickX * 32767.0f);
             report.sThumbRY = (SHORT)(state.rightThumbstickY * 32767.0f);
 
-            if (virtualPad) vigem_target_x360_update(client, virtualPad, report);
+            if (vPad) vigem_target_x360_update(client, vPad, report);
             reading->Release();
 
             DrawControllerState(raw_lx, raw_ly, adj_lx, adj_ly, raw_rx, raw_ry, adj_rx, adj_ry);
         }
     }
-
-    if (virtualPad) 
-    { 
-        vigem_target_remove(client, virtualPad); vigem_target_free(virtualPad); 
-    }
-    if (client) 
-    { 
-        vigem_disconnect(client); vigem_free(client); 
-    }
-    if (gameInput) gameInput->Release();
 
     StopVisualiser();
     return 0;
