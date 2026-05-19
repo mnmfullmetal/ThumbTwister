@@ -182,7 +182,6 @@ int main()
     if (client && VIGEM_SUCCESS(vigem_connect(client)))
     {
         vPad = vigem_target_x360_alloc();
-        vigem_target_add(client, vPad);
     }
 
     // -- SYSTEM TRAY SETUP --
@@ -243,6 +242,11 @@ int main()
             if (physicalDevice == nullptr)
             {
                 reading->GetDevice(&physicalDevice);
+
+                if (vPad)
+                {
+                    vigem_target_add(client, vPad);
+                }
             }
 
             reading->GetGamepadState(&state);
