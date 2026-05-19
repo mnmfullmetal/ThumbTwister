@@ -248,7 +248,7 @@ int main()
 
         if (SUCCEEDED(gameInput->GetCurrentReading(GameInputKindGamepad, physicalDevice, &reading)))
         {
-            // physical device not locked, capture its pointer from the first valid reading
+            // if physical device not locked, capture its pointer from the first valid reading
             if (physicalDevice == nullptr)
             {
                 reading->GetDevice(&physicalDevice);
@@ -273,7 +273,6 @@ int main()
             float leftOffset = GetLeftOffset();
             float rightOffset = GetRightOffset();
             float adjustedLX, adjustedLY, adjustedRX, adjustedRY;
-
             ApplyRotation(rawLX, rawLY, leftOffset, adjustedLX, adjustedLY);
             ApplyRotation(rawRX, rawRY, rightOffset, adjustedRX, adjustedRY);
 
@@ -292,13 +291,18 @@ int main()
                 return (SHORT)scaled;
             };
 
-            // send the final values, adjusted or otherwise to virtual controller
+			// initialise the XUSB report with the final thumbstick values, trigger values, and button states
             XUSB_REPORT report;
             XUSB_REPORT_INIT(&report);
             report.sThumbLX = FloatToShort(finalLX);
             report.sThumbLY = FloatToShort(finalLY);
             report.sThumbRX = FloatToShort(finalRX);
             report.sThumbRY = FloatToShort(finalRY);
+            report.bLeftTrigger = (BYTE)(state.leftTrigger * 255.0f);
+            report.bRightTrigger = (BYTE)(state.rightTrigger * 255.0f);
+            report.wButtons = (USHORT)state.buttons;
+
+			// send the report to the virtual controller
             if (vPad && physicalDevice) vigem_target_x360_update(client, vPad, report);
             reading->Release();
 
