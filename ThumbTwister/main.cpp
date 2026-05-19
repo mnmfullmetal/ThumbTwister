@@ -21,6 +21,8 @@ typedef struct Vector2 {
 
 using namespace GameInput::v3;
 
+bool GetLeftEnabled();
+bool GetRightEnabled();
 void StartVisualiser();
 bool VisualiserShouldClose();
 float GetLeftOffset();
@@ -226,8 +228,10 @@ int main()
 
     // --- GAMEINPUT SETUP ---
     IGameInput* gameInput = nullptr;
+    IGameInputDevice* physicalDevice = nullptr;
     if (FAILED(GameInputCreate(&gameInput))) return -1;
     gameInput->SetFocusPolicy(GameInputEnableBackgroundInput);
+
 
     // --- INITIALISE ENGINE ---
     CalibrationManager calib;
@@ -242,45 +246,79 @@ int main()
         if (CheckCalibrateLeft()) calib.Start(true);
         if (CheckCalibrateRight()) calib.Start(false);
 
-        if (SUCCEEDED(gameInput->GetCurrentReading(GameInputKindGamepad, nullptr, &reading)))
+        if (SUCCEEDED(gameInput->GetCurrentReading(GameInputKindGamepad, physicalDevice, &reading)))
         {
+            // physical device not locked, capture its pointer from the first valid reading
+            if (physicalDevice == nullptr)
+            {
+                reading->GetDevice(&physicalDevice);
+            }
+
             reading->GetGamepadState(&state);
 
-            float raw_lx = state.leftThumbstickX;
-            float raw_ly = state.leftThumbstickY;
-            float raw_rx = state.rightThumbstickX;
-            float raw_ry = state.rightThumbstickY;
+            float rawLX = state.leftThumbstickX;
+            float rawLY = state.leftThumbstickY;
+            float rawRX = state.rightThumbstickX;
+            float rawRY = state.rightThumbstickY;
 
             // feed the stick data to the calibration brain if its active
             if (calib.active)
             {
-                if (calib.isLeftStick) calib.Update(raw_lx, raw_ly);
-                else calib.Update(raw_rx, raw_ry);
+                if (calib.isLeftStick) calib.Update(rawLX, rawLY);
+                else calib.Update(rawRX, rawRY);
                 SetCalibrationDots(calib.capturedPoints, calib.isLeftStick);
             }
 
-            // apply rotation offset based on slider or calibration
+            // apply rotation offset based on manual slider or auto calibration
             float leftOffset = GetLeftOffset();
             float rightOffset = GetRightOffset();
-            float adj_lx, adj_ly, adj_rx, adj_ry;
+            float adjustedLX, adjustedLY, adjustedRX, adjustedRY;
 
-            ApplyRotation(raw_lx, raw_ly, leftOffset, adj_lx, adj_ly);
-            ApplyRotation(raw_rx, raw_ry, rightOffset, adj_rx, adj_ry);
+            ApplyRotation(rawLX, rawLY, leftOffset, adjustedLX, adjustedLY);
+            ApplyRotation(rawRX, rawRY, rightOffset, adjustedRX, adjustedRY);
 
-            // send the adjusted values to virtual controller
+            // determine final output based on UI toggles
+            float finalLX = GetLeftEnabled() ? adjustedLX : rawLX;
+            float finalLY = GetLeftEnabled() ? adjustedLY : rawLY;
+            float finalRX = GetRightEnabled() ? adjustedRX : rawRX;
+            float finalRY = GetRightEnabled() ? adjustedRY : rawRY;
+
+			//clamp float conversion to prevent overflow from bad calibration or input, and convert to SHORT
+            auto FloatToShort = [](float val) -> SHORT 
+            {
+                float scaled = val * 32767.0f;
+                if (scaled > 32767.0f) return 32767;
+                if (scaled < -32768.0f) return -32768;
+                return (SHORT)scaled;
+            };
+
+            // send the final values, adjusted or otherwise to virtual controller
             XUSB_REPORT report;
             XUSB_REPORT_INIT(&report);
-            report.sThumbLX = (SHORT)(state.leftThumbstickX * 32767.0f);
-            report.sThumbLY = (SHORT)(state.leftThumbstickY * 32767.0f);
-            report.sThumbRX = (SHORT)(state.rightThumbstickX * 32767.0f);
-            report.sThumbRY = (SHORT)(state.rightThumbstickY * 32767.0f);
-
-            if (vPad) vigem_target_x360_update(client, vPad, report);
+            report.sThumbLX = FloatToShort(finalLX);
+            report.sThumbLY = FloatToShort(finalLY);
+            report.sThumbRX = FloatToShort(finalRX);
+            report.sThumbRY = FloatToShort(finalRY);
+            if (vPad && physicalDevice) vigem_target_x360_update(client, vPad, report);
             reading->Release();
 
             // draw to the screen
-            DrawControllerState(raw_lx, raw_ly, adj_lx, adj_ly, raw_rx, raw_ry, adj_rx, adj_ry);
+            DrawControllerState(rawLX, rawLY, adjustedLX, adjustedLY, rawRX, rawRY, adjustedRX, adjustedRY);
         }
+    }
+
+    if (physicalDevice) physicalDevice->Release();
+
+    // cleanup ViGEm
+    if (vPad)
+    {
+        vigem_target_remove(client, vPad);
+        vigem_target_free(vPad);
+    }
+    if (client)
+    {
+        vigem_disconnect(client);
+        vigem_free(client);
     }
 
     StopVisualiser();

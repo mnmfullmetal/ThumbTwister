@@ -32,6 +32,10 @@ static bool rightManualMode = false;
 static bool calibrateLeftClicked = false;
 static bool calibrateRightClicked = false;
 
+
+bool GetLeftEnabled() { return leftEnabled; }
+bool GetRightEnabled() { return rightEnabled; }
+
 void SetCalibrationDots(std::vector<Vector2> points, bool isLeft)
 {
     calibrationDots = points;
@@ -187,7 +191,6 @@ void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float a
     textBuffer = TextFormat("RAW X: %0.4f", rawLeftX);
     textWidth = MeasureText(textBuffer, 20);
     DrawText(textBuffer, (int)(leftCircleCentreX - textWidth - textPadding), (int)(leftCircleCentreY + circleRadius + 20), 20, RED);
-
     textBuffer = TextFormat("RAW Y: %0.4f", rawLeftY);
     textWidth = MeasureText(textBuffer, 20);
     DrawText(textBuffer, (int)(leftCircleCentreX - textWidth - textPadding), (int)(leftCircleCentreY + circleRadius + 50), 20, RED);
@@ -195,7 +198,6 @@ void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float a
     // adjusted values text 
     textBuffer = TextFormat("ADJ X: %0.4f", adjLeftX);
     DrawText(textBuffer, (int)(leftCircleCentreX + textPadding), (int)(leftCircleCentreY + circleRadius + 20), 20, GREEN);
-
     textBuffer = TextFormat("ADJ Y: %0.4f", adjLeftY);
     DrawText(textBuffer, (int)(leftCircleCentreX + textPadding), (int)(leftCircleCentreY + circleRadius + 50), 20, GREEN);
 
@@ -239,17 +241,16 @@ void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float a
     }
 
     DrawText("RIGHT STICK", (int)(rightCircleCentreX - 60), (int)(rightCircleCentreY - circleRadius - 40), 20, LIGHTGRAY);
+
     textBuffer = TextFormat("RAW X: %0.4f", rawRightX);
     textWidth = MeasureText(textBuffer, 20);
     DrawText(textBuffer, (int)(rightCircleCentreX - textWidth - textPadding), (int)(rightCircleCentreY + circleRadius + 20), 20, RED);
-
     textBuffer = TextFormat("RAW Y: %0.4f", rawRightY);
     textWidth = MeasureText(textBuffer, 20);
     DrawText(textBuffer, (int)(rightCircleCentreX - textWidth - textPadding), (int)(rightCircleCentreY + circleRadius + 50), 20, RED);
 
     textBuffer = TextFormat("ADJ X: %0.4f", adjRightX);
     DrawText(textBuffer, (int)(rightCircleCentreX + textPadding), (int)(rightCircleCentreY + circleRadius + 20), 20, GREEN);
-
     textBuffer = TextFormat("ADJ Y: %0.4f", adjRightY);
     DrawText(textBuffer, (int)(rightCircleCentreX + textPadding), (int)(rightCircleCentreY + circleRadius + 50), 20, GREEN);
 
@@ -275,13 +276,13 @@ void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float a
     GuiSetStyle(TOGGLE, TEXT_COLOR_NORMAL, ColorToInt(RED));
     GuiSetStyle(TOGGLE, TEXT_COLOR_FOCUSED, ColorToInt(MAROON));
     GuiSetStyle(TOGGLE, TEXT_COLOR_PRESSED, ColorToInt(DARKGREEN));
+
     GuiToggle(Rectangle{ leftBoxX + 20, leftBoxY + 20, btnWidth, btnHeight }, "Enable", & leftEnabled);
     if (GuiButton(Rectangle{ leftBoxX + leftBoxWidth - btnWidth - 20, leftBoxY + 20, btnWidth, btnHeight }, "Calibrate"))
     {
         calibrateLeftClicked = true;
         ClearCalibrationDots();
     }
-
     bool prevLeftManual = leftManualMode;
     GuiCheckBox(Rectangle{ leftBoxX + 20, leftBoxY + leftBoxHeight - botPadding + (btnHeight - 24.0f) / 2.0f, 24, 24 }, "Manual Mode", &leftManualMode);
     if (leftManualMode && !prevLeftManual) ClearCalibrationDots();
@@ -321,17 +322,17 @@ void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float a
     }
     GuiEnable();
 
-    // --- DIM INACTIVE SIDE DURING CALIBRATION ---
+    // -- SCREEN DIMMING DURING CALIB --
     if (currentState == CALIBRATING)
     {
         if (calibratingLeft)
         {
-            // Dim the entire right half of the screen
+            // dim the entire right half of the screen
             DrawRectangle((int)(screenWidth / 2.0f), 0, (int)(screenWidth / 2.0f), (int)screenHeight, Fade(BLACK, 0.7f));
         }
         else
         {
-            // Dim the entire left half of the screen
+            // dim the entire left half of the screen
             DrawRectangle(0, 0, (int)(screenWidth / 2.0f), (int)screenHeight, Fade(BLACK, 0.7f));
         }
     }
