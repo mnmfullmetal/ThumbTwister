@@ -3,6 +3,10 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+Deployment/Output/
+Deployment/bin/*.exe
+Deployment/dependencies/*.exe
+
 # User-specific files
 *.rsuser
 *.suo

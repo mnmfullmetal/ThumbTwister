@@ -22,6 +22,8 @@ static char currentInstruction[64] = "READY";
 static bool needsCentre = false;
 static float leftOffsetDeg = 0.0f;
 static float rightOffsetDeg = 0.0f;
+static int progressCurrent = 0;
+static int progressTotal = 20;
 
 static std::vector<CalibPoint> calibrationDots;
 static bool calibratingLeft = true;
@@ -67,11 +69,13 @@ bool VisualiserShouldClose()
     return WindowShouldClose();
 }
 
-void SetCalibrationUI(const char* text, bool requireCentre)
+void SetCalibrationUI(const char* text, bool requireCentre, int current, int total)
 {
     currentState = CALIBRATING;
     strcpy(currentInstruction, text);
     needsCentre = requireCentre;
+    progressCurrent = current;
+    progressTotal = total;
 }
 
 void StopCalibrationUI()
@@ -348,11 +352,17 @@ void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float a
         int titleWidth = MeasureText(title, 30);
         DrawText(title, (int)(activeCentreX - titleWidth / 2.0f), 100, 30, YELLOW);
 
+        // -- CALIBRATION PROGRESS BAR --
+        float barWidth = 200.0f;
+        float barHeight = 20.0f;
+        float progress = (float)progressCurrent / (float)progressTotal;
+        GuiProgressBar(Rectangle{ activeCentreX - (barWidth / 2.0f), 140, barWidth, barHeight }, NULL, NULL, &progress, 0.0f, 1.0f);
+
         if (needsCentre)
         {
             const char* msg = "RETURN TO CENTRE";
             int messageWidth = MeasureText(msg, 35);
-            DrawText(msg, (int)(activeCentreX - messageWidth / 2.0f), 150, 35, ORANGE);
+            DrawText(msg, (int)(activeCentreX - messageWidth / 2.0f), 200, 35, ORANGE);
         }
     }
 

@@ -15,14 +15,6 @@
 #define WM_TRAYICON (WM_USER + 1)
 #define ID_TRAY_EXIT 1001
 
-#ifndef RAYLIB_VECTOR2_DEFINITION
-#define RAYLIB_VECTOR2_DEFINITION
-typedef struct Vector2 {
-    float x;
-    float y;
-} Vector2;
-#endif
-
 #pragma comment(lib, "GameInput.lib")
 #pragma comment(lib, "setupapi.lib")
 #pragma comment(lib, "winmm.lib")
@@ -50,6 +42,94 @@ void ApplyRotation(float raw_x, float raw_y, float offsetDeg, float& out_x, floa
 
     if (out_x > 1.0f) out_x = 1.0f; if (out_x < -1.0f) out_x = -1.0f;
     if (out_y > 1.0f) out_y = 1.0f; if (out_y < -1.0f) out_y = -1.0f;
+}
+
+USHORT TranslateButtons(uint32_t giButtons)
+{
+    USHORT xusbButtons = 0;
+
+    // D-Pad
+    if (giButtons & GameInputGamepadDPadUp)          xusbButtons |= XUSB_GAMEPAD_DPAD_UP;
+    if (giButtons & GameInputGamepadDPadDown)        xusbButtons |= XUSB_GAMEPAD_DPAD_DOWN;
+    if (giButtons & GameInputGamepadDPadLeft)        xusbButtons |= XUSB_GAMEPAD_DPAD_LEFT;
+    if (giButtons & GameInputGamepadDPadRight)       xusbButtons |= XUSB_GAMEPAD_DPAD_RIGHT;
+
+    // Start / Select 
+    if (giButtons & GameInputGamepadMenu)            xusbButtons |= XUSB_GAMEPAD_START;
+    if (giButtons & GameInputGamepadView)            xusbButtons |= XUSB_GAMEPAD_BACK;
+
+    // Stick Clicks
+    if (giButtons & GameInputGamepadLeftThumbstick)  xusbButtons |= XUSB_GAMEPAD_LEFT_THUMB;
+    if (giButtons & GameInputGamepadRightThumbstick) xusbButtons |= XUSB_GAMEPAD_RIGHT_THUMB;
+
+    // Bumpers
+    if (giButtons & GameInputGamepadLeftShoulder)    xusbButtons |= XUSB_GAMEPAD_LEFT_SHOULDER;
+    if (giButtons & GameInputGamepadRightShoulder)   xusbButtons |= XUSB_GAMEPAD_RIGHT_SHOULDER;
+
+    // Face Buttons
+    if (giButtons & GameInputGamepadA)               xusbButtons |= XUSB_GAMEPAD_A;
+    if (giButtons & GameInputGamepadB)               xusbButtons |= XUSB_GAMEPAD_B;
+    if (giButtons & GameInputGamepadX)               xusbButtons |= XUSB_GAMEPAD_X;
+    if (giButtons & GameInputGamepadY)               xusbButtons |= XUSB_GAMEPAD_Y;
+
+    return xusbButtons;
+}
+
+std::string GetHidHidePath()
+{
+    std::string path = "";
+    HKEY hKey;
+    char value[MAX_PATH];
+    DWORD bufferSize = sizeof(value);
+
+    // try to find path to HidHideCLI.exe in Windows Registry 
+    if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SOFTWARE\\Nefarius Software Solutions\\HidHide", 0, KEY_READ | KEY_WOW64_64KEY, &hKey) == ERROR_SUCCESS)
+    {
+        if (RegQueryValueExA(hKey, "InstallDir", NULL, NULL, (LPBYTE)value, &bufferSize) == ERROR_SUCCESS)
+        {
+            path = std::string(value) + "\\x64\\HidHideCLI.exe";
+        }
+        RegCloseKey(hKey);
+    }
+
+    // if registry lookup failed, look in the same folder as the app
+    if (path.empty())
+    {
+        char buffer[MAX_PATH];
+        GetModuleFileNameA(NULL, buffer, MAX_PATH);
+        std::string exePath(buffer);
+        path = exePath.substr(0, exePath.find_last_of("\\/")) + "\\HidHideCLI.exe";
+    }
+
+    return path;
+}
+
+void SetHidHideState(bool enabled)
+{
+    std::string cliPath = GetHidHidePath();
+    DWORD dwAttrib = GetFileAttributesA(cliPath.c_str());
+    if (dwAttrib == INVALID_FILE_ATTRIBUTES)
+    {
+        return;
+    }
+
+    SHELLEXECUTEINFOA sei = { 0 };
+    sei.cbSize = sizeof(SHELLEXECUTEINFO);
+    sei.fMask = SEE_MASK_NOCLOSEPROCESS;
+    sei.lpVerb = "runas";
+    sei.lpFile = cliPath.c_str();
+    sei.lpParameters = enabled ? "--cloak-on" : "--cloak-off";
+    sei.nShow = SW_HIDE;
+
+    if (ShellExecuteExA(&sei))
+    {
+        // wait for the process to finish before exit
+        if (sei.hProcess != NULL)
+        {
+            WaitForSingleObject(sei.hProcess, INFINITE);
+            CloseHandle(sei.hProcess);
+        }
+    }
 }
 
 
@@ -87,6 +167,9 @@ LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 int main()
 {
+	// enable hidhide device hiding to conceal the physical controller from windows
+    SetHidHideState(true);
+
     // -- GAMEINPUT SETUP --
     IGameInput* gameInput = nullptr;
     IGameInputDevice* physicalDevice = nullptr;
@@ -208,7 +291,7 @@ int main()
             report.sThumbRY = FloatToShort(finalRY);
             report.bLeftTrigger = (BYTE)(state.leftTrigger * 255.0f);
             report.bRightTrigger = (BYTE)(state.rightTrigger * 255.0f);
-            report.wButtons = (USHORT)state.buttons;
+            report.wButtons = TranslateButtons(state.buttons);
 
 			// send the report to the virtual controller
             if (vPad && physicalDevice) vigem_target_x360_update(client, vPad, report);
@@ -259,6 +342,8 @@ int main()
     }
 
     if (windowOpen) StopVisualiser();
+
+    SetHidHideState(false);
 
     return 0;
 }

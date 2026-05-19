@@ -79,7 +79,7 @@ void CalibrationManager::Update(float x, float y)
     // -- DEADZONE CHECK FOR RETURN TO CENTRE --
     if (step == WAITING_FOR_CENTRE)
     {
-        SetCalibrationUI("RETURN TO CENTER", true);
+        SetCalibrationUI("RETURN TO CENTRE", true, currentIdx, (int)targetAngles.size());
         if (mag < 0.2f) step = WAITING_FOR_PUSH;
     }
     // capture when the stick is pushed 
@@ -90,10 +90,10 @@ void CalibrationManager::Update(float x, float y)
         float target_y = 0.0f;
 
         // set UI text based on the target angle and define ideal target vectors
-        if (targetDeg == 90.0f) { SetCalibrationUI("PUSH UP", false);    target_x = 0.0f;  target_y = 1.0f; }
-        else if (targetDeg == 270.0f) { SetCalibrationUI("PUSH DOWN", false);  target_x = 0.0f;  target_y = -1.0f; }
-        else if (targetDeg == 180.0f) { SetCalibrationUI("PUSH LEFT", false);  target_x = -1.0f; target_y = 0.0f; }
-        else if (targetDeg == 0.0f) { SetCalibrationUI("PUSH RIGHT", false); target_x = 1.0f;  target_y = 0.0f; }
+        if (targetDeg == 90.0f) { SetCalibrationUI("PUSH UP", false, currentIdx + 1, (int)targetAngles.size());    target_x = 0.0f;  target_y = 1.0f; }
+        else if (targetDeg == 270.0f) { SetCalibrationUI("PUSH DOWN", false, currentIdx + 1, (int)targetAngles.size());  target_x = 0.0f;  target_y = -1.0f; }
+        else if (targetDeg == 180.0f) { SetCalibrationUI("PUSH LEFT", false, currentIdx + 1, (int)targetAngles.size());  target_x = -1.0f; target_y = 0.0f; }
+        else if (targetDeg == 0.0f) { SetCalibrationUI("PUSH RIGHT", false, currentIdx + 1, (int)targetAngles.size()); target_x = 1.0f;  target_y = 0.0f; }
 
         //-- ERROR NORMALISATISION --
         if (mag > 0.90f)

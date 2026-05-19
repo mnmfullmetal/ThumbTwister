@@ -10,7 +10,7 @@ float GetLeftOffset();
 float GetRightOffset();
 void SetLeftOffset(float val);
 void SetRightOffset(float val);
-void SetCalibrationUI(const char* text, bool requireCentre);
+void SetCalibrationUI(const char* text, bool requireCentre, int current, int total);
 void StopCalibrationUI();
 bool CheckCalibrateLeft();
 bool CheckCalibrateRight();

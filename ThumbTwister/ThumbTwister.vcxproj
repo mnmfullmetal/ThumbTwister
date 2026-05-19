@@ -133,6 +133,7 @@
       <AdditionalDependencies>raylib.lib;ViGEmClient.lib;GameInput.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>E:\Visual Studio Projects\ThumbTwister\packages\Microsoft.GameInput.3.3.195\native\lib\x64;E:\DevLibs\ViGEmClient\lib;E:\Visual Studio Projects\ThumbTwister\ThumbTwister\raylib_stuff\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>libcmt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
