@@ -26,6 +26,7 @@ typedef struct Vector2 {
 #pragma comment(lib, "GameInput.lib")
 #pragma comment(lib, "setupapi.lib")
 #pragma comment(lib, "winmm.lib")
+#pragma comment(linker, "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
 
 using namespace GameInput::v3;
 
@@ -50,23 +51,6 @@ void ApplyRotation(float raw_x, float raw_y, float offsetDeg, float& out_x, floa
     if (out_x > 1.0f) out_x = 1.0f; if (out_x < -1.0f) out_x = -1.0f;
     if (out_y > 1.0f) out_y = 1.0f; if (out_y < -1.0f) out_y = -1.0f;
 }
-
-
-void AutoWhitelistHidHide()
-{
-    // get the full file path of the running executable
-    char exePath[MAX_PATH];
-    GetModuleFileNameA(NULL, exePath, MAX_PATH);
-
-    // build the CLI command for the HidHide CLI utility
-    std::string command = "HidHideCLI.exe --app-add \"";
-    command += exePath;
-    command += "\"";
-
-    // execute the command in the background
-    system(command.c_str());
-}
-
 
 
 // -- CALLBACK THAT LISTENS FOR RIGHT CLICK ON THE TRAY ICON -- 
@@ -103,8 +87,6 @@ LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 int main()
 {
-    AutoWhitelistHidHide();
-
     // -- GAMEINPUT SETUP --
     IGameInput* gameInput = nullptr;
     IGameInputDevice* physicalDevice = nullptr;
@@ -254,6 +236,10 @@ int main()
             {
                 Sleep(1);
             }
+        }
+         else if (!windowOpen)
+        {
+            Sleep(1);
         }
     }
 
