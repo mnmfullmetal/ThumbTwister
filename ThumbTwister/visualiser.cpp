@@ -1,4 +1,6 @@
 #define _CRT_SECURE_NO_WARNINGS
+#include "Visualiser.h"
+#include "Calibration.h"
 #include "raylib.h"
 #include <vector> 
 #include <cstring> 
@@ -21,7 +23,7 @@ static bool needsCentre = false;
 static float leftOffsetDeg = 0.0f;
 static float rightOffsetDeg = 0.0f;
 
-static std::vector<Vector2> calibrationDots;
+static std::vector<CalibPoint> calibrationDots;
 static bool calibratingLeft = true;
 
 // -- UI STATE VARS --
@@ -36,7 +38,7 @@ static bool calibrateRightClicked = false;
 bool GetLeftEnabled() { return leftEnabled; }
 bool GetRightEnabled() { return rightEnabled; }
 
-void SetCalibrationDots(std::vector<Vector2> points, bool isLeft)
+void SetCalibrationDots(std::vector<CalibPoint> points, bool isLeft)
 {
     calibrationDots = points;
     calibratingLeft = isLeft;
@@ -102,14 +104,14 @@ void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float a
     ClearBackground(VERY_DARKGRAY);
 
     // --- VISUAL CLAMP  ---
-    auto ClampToCircle = [](float& x, float& y) 
-    {
-        float mag = sqrtf(x * x + y * y);
-        if (mag > 1.0f) {
-            x /= mag;
-            y /= mag;
-        }
-    };
+    auto ClampToCircle = [](float& x, float& y)
+        {
+            float mag = sqrtf(x * x + y * y);
+            if (mag > 1.0f) {
+                x /= mag;
+                y /= mag;
+            }
+        };
 
     float drawableRawLeftX = rawLeftX, drawableRawLeftY = rawLeftY;
     float drawableAdjLeftX = adjLeftX, drawableAdjLeftY = adjLeftY;
@@ -165,13 +167,13 @@ void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float a
 
     // hide dots during calibration if this stick is active, otherwise, draw them
     bool hideLeft = (currentState == CALIBRATING && calibratingLeft);
-    if (!hideLeft) 
+    if (!hideLeft)
     {
         DrawCircle((int)(leftCircleCentreX + drawableAdjLeftX * circleRadius), (int)(leftCircleCentreY - drawableAdjLeftY * circleRadius), 14, GREEN);
         DrawCircle((int)(leftCircleCentreX + drawableRawLeftX * circleRadius), (int)(leftCircleCentreY - drawableRawLeftY * circleRadius), 14, RED);
 
     }
-    else if (!needsCentre) 
+    else if (!needsCentre)
     {
         // draw the calib target quadrant
         float sectorStartAngle = 0, sectorEndAngle = 0;
@@ -224,13 +226,13 @@ void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float a
     }
 
     bool hideRight = (currentState == CALIBRATING && !calibratingLeft);
-    if (!hideRight) 
+    if (!hideRight)
     {
         DrawCircle((int)(rightCircleCentreX + drawableAdjRightX * circleRadius), (int)(rightCircleCentreY - drawableAdjRightY * circleRadius), 14, GREEN);
         DrawCircle((int)(rightCircleCentreX + drawableRawRightX * circleRadius), (int)(rightCircleCentreY - drawableRawRightY * circleRadius), 14, RED);
 
     }
-    else if (!needsCentre) 
+    else if (!needsCentre)
     {
         float sectorStartAngle = 0, sectorEndAngle = 0;
         if (strstr(currentInstruction, "UP")) { sectorStartAngle = 225; sectorEndAngle = 315; }
@@ -277,7 +279,7 @@ void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float a
     GuiSetStyle(TOGGLE, TEXT_COLOR_FOCUSED, ColorToInt(MAROON));
     GuiSetStyle(TOGGLE, TEXT_COLOR_PRESSED, ColorToInt(DARKGREEN));
 
-    GuiToggle(Rectangle{ leftBoxX + 20, leftBoxY + 20, btnWidth, btnHeight }, "Enable", & leftEnabled);
+    GuiToggle(Rectangle{ leftBoxX + 20, leftBoxY + 20, btnWidth, btnHeight }, "Enable", &leftEnabled);
     if (GuiButton(Rectangle{ leftBoxX + leftBoxWidth - btnWidth - 20, leftBoxY + 20, btnWidth, btnHeight }, "Calibrate"))
     {
         calibrateLeftClicked = true;

@@ -21,12 +21,21 @@
     <ClCompile Include="visualiser.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="calibration.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="raygui.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="calibration.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="visualiser.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

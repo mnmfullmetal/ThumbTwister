@@ -8,6 +8,9 @@
 #include <random>
 #include <shellapi.h>
 
+#include "Calibration.h"
+#include "Visualiser.h"
+
 // -- SYSTEM TRAY CONSTANTS --
 #define WM_TRAYICON (WM_USER + 1)
 #define ID_TRAY_EXIT 1001
@@ -27,24 +30,6 @@ typedef struct Vector2 {
 using namespace GameInput::v3;
 
 static bool isRunning = true;
-
-bool GetLeftEnabled();
-bool GetRightEnabled();
-void StartVisualiser();
-bool VisualiserShouldClose();
-float GetLeftOffset();
-float GetRightOffset();
-void SetLeftOffset(float val);
-void SetRightOffset(float val);
-void SetRotationOffset(float val);
-void SetCalibrationUI(const char* text, bool requireCentre);
-void StopCalibrationUI();
-bool CheckCalibrateLeft();
-bool CheckCalibrateRight();
-void DrawControllerState(float r_lx, float r_ly, float s_lx, float s_ly, float r_rx, float r_ry, float s_rx, float s_ry);
-void StopVisualiser();
-void SetCalibrationDots(std::vector<Vector2> points, bool isLeft);
-void ClearCalibrationDots();
 
 void ApplyRotation(float raw_x, float raw_y, float offsetDeg, float& out_x, float& out_y)
 {
@@ -69,169 +54,20 @@ void ApplyRotation(float raw_x, float raw_y, float offsetDeg, float& out_x, floa
 
 void AutoWhitelistHidHide()
 {
+    // get the full file path of the running executable
     char exePath[MAX_PATH];
     GetModuleFileNameA(NULL, exePath, MAX_PATH);
+
+    // build the CLI command for the HidHide CLI utility
     std::string command = "HidHideCLI.exe --app-add \"";
     command += exePath;
     command += "\"";
+
+    // execute the command in the background
     system(command.c_str());
 }
 
-enum CalibStep { WAITING_FOR_PUSH, WAITING_FOR_CENTRE };
 
-struct CalibrationManager
-{
-    bool active = false;
-    bool isLeftStick = true;
-    CalibStep step = WAITING_FOR_CENTRE;
-    std::vector<Vector2> capturedPoints;
-    std::vector<float> targetAngles;
-    int currentIdx = 0;
-    float sumCosError = 0.0f;
-    float sumSinError = 0.0f;
-
-    // -- CALIBRATION VALIDATION ---
-    bool IsValidSequence() 
-    {
-        // check for identical back-to-back inputs 
-        for (size_t i = 1; i < targetAngles.size(); i++)
-        {
-            if (targetAngles[i] == targetAngles[i - 1]) return false;
-        }
-
-        // check for predictable circles 
-        for (size_t i = 2; i < targetAngles.size(); i++)
-        {
-            // calculate the angle of the first turn
-            float d1 = targetAngles[i - 1] - targetAngles[i - 2];
-            while (d1 > 180.0f) d1 -= 360.0f;
-            while (d1 < -180.0f) d1 += 360.0f;
-
-            // calculate the angle of the second turn
-            float d2 = targetAngles[i] - targetAngles[i - 1];
-            while (d2 > 180.0f) d2 -= 360.0f;
-            while (d2 < -180.0f) d2 += 360.0f;
-
-            // if both turns are +90 or both are -90, it forms a predictable arc, fuck it off bro
-            if (std::abs(d1) == 90.0f && d1 == d2)
-            {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    // triggered when the calib button is clicked
-    void Start(bool left)
-    {
-        capturedPoints.clear();
-
-        // create target angle vectors for calibration input request 
-        targetAngles.clear();
-        for (int i = 0; i < 5; i++)
-        {
-            targetAngles.push_back(90.0f);
-            targetAngles.push_back(270.0f);
-            targetAngles.push_back(180.0f);
-            targetAngles.push_back(0.0f);
-        }
-
-        active = true;
-        isLeftStick = left;
-        currentIdx = 0;
-        step = WAITING_FOR_CENTRE;
-
-        // var to store vector components of angular error
-        sumCosError = 0.0f;
-        sumSinError = 0.0f;
-
-        // shuffle the directions for randomness
-        std::random_device rd;
-        std::mt19937 g(rd());
-        do {
-            std::shuffle(targetAngles.begin(), targetAngles.end(), g);
-        } while (!IsValidSequence());
-    }
-
-    void Update(float x, float y)
-    {
-        if (!active) return;
-
-        // get magnitude vector of thumbstick
-        float mag = std::sqrtf(x * x + y * y);
-
-        // -- DEADZONE CHECK FOR RETURN TO CENTRE ---
-        if (step == WAITING_FOR_CENTRE)
-        {
-            SetCalibrationUI("RETURN TO CENTER", true);
-            if (mag < 0.2f) step = WAITING_FOR_PUSH;
-        }
-        // capture when the stick is pushed 
-        else if (step == WAITING_FOR_PUSH)
-        {
-            float targetDeg = targetAngles[currentIdx];
-            float target_x = 0.0f;
-            float target_y = 0.0f;
-
-            // set UI text based on the target angle and define ideal target vectors
-            if (targetDeg == 90.0f) { SetCalibrationUI("PUSH UP", false);    target_x = 0.0f;  target_y = 1.0f; }
-            else if (targetDeg == 270.0f) { SetCalibrationUI("PUSH DOWN", false);  target_x = 0.0f;  target_y = -1.0f; }
-            else if (targetDeg == 180.0f) { SetCalibrationUI("PUSH LEFT", false);  target_x = -1.0f; target_y = 0.0f; }
-            else if (targetDeg == 0.0f) { SetCalibrationUI("PUSH RIGHT", false); target_x = 1.0f;  target_y = 0.0f; }
-
-            //-- ERROR NORMALISATISION ---
-            if (mag > 0.90f)
-            {
-                capturedPoints.push_back(Vector2{ x, y });
-                std::cout << "Captured Point [" << currentIdx + 1 << "/20]: X = " << x << ", Y = " << y << "\n";
-
-                // normalise the raw cartesian coordinates
-                float norm_x = x / mag;
-                float norm_y = y / mag;
-
-                float cosError = (norm_x * target_x) + (norm_y * target_y);
-                float sinError = (norm_x * target_y) - (norm_y * target_x);
-
-                sumCosError += cosError;
-                sumSinError += sinError;
-
-                currentIdx++;
-
-                // check if completed all directions for calibration
-                if (currentIdx >= targetAngles.size())
-                {
-                    Finish();
-                }
-                else
-                {
-                    step = WAITING_FOR_CENTRE;
-                }
-            }
-        }
-    }
-
-    void Finish()
-    {
-        float avgCos = sumCosError / (float)targetAngles.size();
-        float avgSin = sumSinError / (float)targetAngles.size();
-
-        // convert the final averaged matrix back to polar degrees 
-        float averageOffset = std::atan2f(avgSin, avgCos) * (180.0f / 3.14159265f);
-
-        //  invert the offset to correct it (if error is +5, move -5)
-        if (isLeftStick)
-        {
-            SetLeftOffset(-averageOffset);
-        }
-        else
-        {
-            SetRightOffset(-averageOffset);
-        }
-
-        active = false;
-        StopCalibrationUI();
-    }
-};
 
 // -- CALLBACK THAT LISTENS FOR RIGHT CLICK ON THE TRAY ICON -- 
 LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -269,6 +105,12 @@ int main()
 {
     AutoWhitelistHidHide();
 
+    // -- GAMEINPUT SETUP --
+    IGameInput* gameInput = nullptr;
+    IGameInputDevice* physicalDevice = nullptr;
+    if (FAILED(GameInputCreate(&gameInput))) return -1;
+    gameInput->SetFocusPolicy(GameInputEnableBackgroundInput);
+
     // -- VIGEM SETUP --
     PVIGEM_CLIENT client = vigem_alloc();
     PVIGEM_TARGET vPad = nullptr;
@@ -278,12 +120,6 @@ int main()
         vigem_target_add(client, vPad);
     }
 
-    // -- GAMEINPUT SETUP --
-    IGameInput* gameInput = nullptr;
-    IGameInputDevice* physicalDevice = nullptr;
-    if (FAILED(GameInputCreate(&gameInput))) return -1;
-    gameInput->SetFocusPolicy(GameInputEnableBackgroundInput);
-
     // -- SYSTEM TRAY SETUP --
     WNDCLASS wc = { 0 };
     wc.lpfnWndProc = TrayWndProc;
@@ -291,7 +127,7 @@ int main()
     wc.lpszClassName = TEXT("ThumbTwisterTrayClass");
     RegisterClass(&wc);
 
-    // message-only window to handle tray icon clicks
+    // message only window to handle tray icon clicks
     HWND hwndTray = CreateWindow(TEXT("ThumbTwisterTrayClass"), TEXT("ThumbTwisterTray"), 0, 0, 0, 0, 0, HWND_MESSAGE, NULL, wc.hInstance, NULL);
 
     // initialise the data structure required by Windows to create the tray icon
@@ -333,6 +169,8 @@ int main()
             if (CheckCalibrateRight()) calib.Start(false);
         }
        
+        float rawLX = 0.0f, rawLY = 0.0f, rawRX = 0.0f, rawRY = 0.0f;
+        float adjustedLX = 0.0f, adjustedLY = 0.0f, adjustedRX = 0.0f, adjustedRY = 0.0f;
 
         if (SUCCEEDED(gameInput->GetCurrentReading(GameInputKindGamepad, physicalDevice, &reading)))
         {
@@ -344,10 +182,10 @@ int main()
 
             reading->GetGamepadState(&state);
 
-            float rawLX = state.leftThumbstickX;
-            float rawLY = state.leftThumbstickY;
-            float rawRX = state.rightThumbstickX;
-            float rawRY = state.rightThumbstickY;
+            rawLX = state.leftThumbstickX;
+            rawLY = state.leftThumbstickY;
+            rawRX = state.rightThumbstickX;
+            rawRY = state.rightThumbstickY;
 
             // feed the stick data to the calibration brain if its active
             if (calib.active)
@@ -360,7 +198,7 @@ int main()
             // apply rotation offset based on manual slider or auto calibration
             float leftOffset = GetLeftOffset();
             float rightOffset = GetRightOffset();
-            float adjustedLX, adjustedLY, adjustedRX, adjustedRY;
+        
             ApplyRotation(rawLX, rawLY, leftOffset, adjustedLX, adjustedLY);
             ApplyRotation(rawRX, rawRY, rightOffset, adjustedRX, adjustedRY);
 
@@ -416,10 +254,6 @@ int main()
             {
                 Sleep(1);
             }
-        }
-        else if (!windowOpen)
-        {
-            Sleep(1);
         }
     }
 
