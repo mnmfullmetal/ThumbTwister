@@ -18,3 +18,4 @@ void DrawControllerState(float r_lx, float r_ly, float s_lx, float s_ly, float r
 void StopVisualiser();
 void SetCalibrationDots(std::vector<CalibPoint> points, bool isLeft);
 void ClearCalibrationDots();
+void DestroyVisualiser();

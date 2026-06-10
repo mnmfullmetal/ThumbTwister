@@ -96,6 +96,8 @@ void StartVisualiser()
     SetTargetFPS(500);
     SetWindowState(FLAG_WINDOW_RESIZABLE);
 
+    GuiSetFont(GetFontDefault());
+
     GuiSetStyle(DEFAULT, TEXT_SIZE, 20);
     GuiSetStyle(DEFAULT, TEXT_COLOR_NORMAL, ColorToInt(WHITE));
     GuiSetStyle(DEFAULT, TEXT_COLOR_FOCUSED, ColorToInt(WHITE));

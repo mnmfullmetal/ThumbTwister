@@ -238,7 +238,7 @@ int main()
 
     while (isRunning)
     {
-		// process Win32 Messages for the system tray icon and visualiser window
+        // process Win32 Messages for the system tray icon and visualiser window
         MSG msg;
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
         {
