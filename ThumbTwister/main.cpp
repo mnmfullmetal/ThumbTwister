@@ -14,6 +14,7 @@
 // -- SYSTEM TRAY CONSTANTS --
 #define WM_TRAYICON (WM_USER + 1)
 #define ID_TRAY_EXIT 1001
+#define ID_TRAY_OPEN 1002
 
 #pragma comment(lib, "GameInput.lib")
 #pragma comment(lib, "setupapi.lib")
@@ -23,6 +24,8 @@
 using namespace GameInput::v3;
 
 static bool isRunning = true;
+static bool windowOpen = true;
+static NOTIFYICONDATA nid = { 0 };
 
 void ApplyRotation(float raw_x, float raw_y, float offsetDeg, float& out_x, float& out_y)
 {
@@ -138,12 +141,26 @@ LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (msg == WM_TRAYICON)
     {
+        // if user double left clicks the tray icon 
+        if (lParam == WM_LBUTTONDBLCLK)
+        {
+            if (!windowOpen)
+            {
+                windowOpen = true;
+                StartVisualiser();
+                Shell_NotifyIcon(NIM_DELETE, &nid);
+            }
+        }
+
         // if user right clicks the tray icon
-        if (lParam == WM_RBUTTONUP)
+        else if (lParam == WM_RBUTTONUP)
         {
             POINT pt;
             GetCursorPos(&pt);
             HMENU hMenu = CreatePopupMenu();
+
+            AppendMenu(hMenu, MF_STRING, ID_TRAY_OPEN, TEXT("Open Visualiser"));
+            AppendMenu(hMenu, MF_SEPARATOR, 0, NULL);
             AppendMenu(hMenu, MF_STRING, ID_TRAY_EXIT, TEXT("Exit ThumbTwister"));
 
             // prevent the menu from getting stuck on screen
@@ -160,6 +177,17 @@ LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         if (LOWORD(wParam) == ID_TRAY_EXIT)
         {
             isRunning = false;
+        }
+
+        // if the user clicks open from the tray menu
+        else if (LOWORD(wParam) == ID_TRAY_OPEN)
+        {
+            if (!windowOpen)
+            {
+                windowOpen = true;
+                StartVisualiser();
+                Shell_NotifyIcon(NIM_DELETE, &nid);
+            }
         }
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
@@ -195,7 +223,6 @@ int main()
     HWND hwndTray = CreateWindow(TEXT("ThumbTwisterTrayClass"), TEXT("ThumbTwisterTray"), 0, 0, 0, 0, 0, HWND_MESSAGE, NULL, wc.hInstance, NULL);
 
     // initialise the data structure required by Windows to create the tray icon
-    NOTIFYICONDATA nid = { 0 };
     nid.cbSize = sizeof(NOTIFYICONDATA);
     nid.hWnd = hwndTray;
     nid.uID = 1;
@@ -208,11 +235,10 @@ int main()
     // -- INITIALISE ENGINE --
     CalibrationManager calib;
     StartVisualiser();
-    bool windowOpen = true;
 
     while (isRunning)
     {
-        // 1. Process Win32 Messages (Keeps the tray icon right-click menu responsive)
+		// process Win32 Messages for the system tray icon and visualiser window
         MSG msg;
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
         {
