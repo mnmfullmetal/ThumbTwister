@@ -293,7 +293,7 @@ int main()
             // apply rotation offset based on manual slider or auto calibration
             float leftOffset = GetLeftOffset();
             float rightOffset = GetRightOffset();
-        
+
             ApplyRotation(rawLX, rawLY, leftOffset, adjustedLX, adjustedLY);
             ApplyRotation(rawRX, rawRY, rightOffset, adjustedRX, adjustedRY);
 
@@ -303,17 +303,17 @@ int main()
             float finalRX = GetRightEnabled() ? adjustedRX : rawRX;
             float finalRY = GetRightEnabled() ? adjustedRY : rawRY;
 
-			// clamp float conversion to prevent overflow from bad calibration or input, and convert to SHORT
-            auto FloatToShort = [](float val) -> SHORT 
-            {
-                float scaled = val * 32767.0f;
-                if (scaled > 32767.0f) return 32767;
-                if (scaled < -32768.0f) return -32768;
-                return (SHORT)scaled;
-            };
+            // clamp float conversion to prevent overflow from bad calibration or input, and convert to SHORT
+            auto FloatToShort = [](float val) -> SHORT
+                {
+                    float scaled = val * 32767.0f;
+                    if (scaled > 32767.0f) return 32767;
+                    if (scaled < -32768.0f) return -32768;
+                    return (SHORT)scaled;
+                };
 
-			// initialise the XUSB report with the final thumbstick, trigger, and button values
-            XUSB_REPORT report = {0};
+            // initialise the XUSB report with the final thumbstick, trigger, and button values
+            XUSB_REPORT report = { 0 };
             XUSB_REPORT_INIT(&report);
             report.sThumbLX = FloatToShort(finalLX);
             report.sThumbLY = FloatToShort(finalLY);
@@ -323,10 +323,10 @@ int main()
             report.bRightTrigger = (BYTE)(state.rightTrigger * 255.0f);
             report.wButtons = TranslateButtons(state.buttons);
 
-			// send the report to the virtual controller
+            // send the report to the virtual controller
             if (vPad && physicalDevice) vigem_target_x360_update(client, vPad, report);
             reading->Release();
-
+        }
 			// -- UI STATE MANAGEMENT ---
             if (windowOpen)
             {
@@ -349,11 +349,7 @@ int main()
             {
                 Sleep(1);
             }
-        }
-         else if (!windowOpen)
-        {
-            Sleep(1);
-        }
+       
     }
 
     // --- CLEANUP ---
