@@ -11,12 +11,12 @@
 // -- CUSTOM COLOURS -- 
 Color VERY_DARKGRAY = { 30, 30, 30, 255 };
 
+// -- CALIBRATION STATE VARS --
 enum CalibState
 {
     IDLE,
     CALIBRATING,
 };
-
 static CalibState currentState = IDLE;
 static char currentInstruction[64] = "READY";
 static bool needsCentre = false;
@@ -24,9 +24,47 @@ static float leftOffsetDeg = 0.0f;
 static float rightOffsetDeg = 0.0f;
 static int progressCurrent = 0;
 static int progressTotal = 20;
-
 static std::vector<CalibPoint> calibrationDots;
 static bool calibratingLeft = true;
+
+// -- CALIBRATION FUNCTIONS --
+void SetCalibrationDots(std::vector<CalibPoint> points, bool isLeft)
+{
+    calibrationDots = points;
+    calibratingLeft = isLeft;
+}
+void ClearCalibrationDots()
+{
+    calibrationDots.clear();
+}
+void SetCalibrationUI(const char* text, bool requireCentre, int current, int total)
+{
+    currentState = CALIBRATING;
+    strcpy(currentInstruction, text);
+    needsCentre = requireCentre;
+    progressCurrent = current;
+    progressTotal = total;
+}
+void StopCalibrationUI()
+{
+    currentState = IDLE;
+}
+float GetLeftOffset()
+{
+    return leftOffsetDeg;
+}
+float GetRightOffset() 
+{
+    return rightOffsetDeg;
+}
+void SetLeftOffset(float val) 
+{ 
+    leftOffsetDeg = val; 
+}
+void SetRightOffset(float val) 
+{
+    rightOffsetDeg = val; 
+}
 
 // -- UI STATE VARS --
 static bool leftEnabled = true;
@@ -36,21 +74,21 @@ static bool rightManualMode = false;
 static bool calibrateLeftClicked = false;
 static bool calibrateRightClicked = false;
 
-
+// -- UI STATE FUNCTIONS --
 bool GetLeftEnabled() { return leftEnabled; }
 bool GetRightEnabled() { return rightEnabled; }
-
-void SetCalibrationDots(std::vector<CalibPoint> points, bool isLeft)
+bool CheckCalibrateRight()
 {
-    calibrationDots = points;
-    calibratingLeft = isLeft;
+    bool temp = calibrateRightClicked;
+    calibrateRightClicked = false;
+    return temp;
 }
-
-void ClearCalibrationDots()
+bool CheckCalibrateLeft()
 {
-    calibrationDots.clear();
+    bool temp = calibrateLeftClicked;
+    calibrateLeftClicked = false;
+    return temp;
 }
-
 void StartVisualiser()
 {
     SetConfigFlags(FLAG_MSAA_4X_HINT);
@@ -63,45 +101,13 @@ void StartVisualiser()
     GuiSetStyle(DEFAULT, TEXT_COLOR_FOCUSED, ColorToInt(WHITE));
     GuiSetStyle(DEFAULT, TEXT_COLOR_PRESSED, ColorToInt(WHITE));
 }
-
 bool VisualiserShouldClose()
 {
     return WindowShouldClose();
 }
-
-void SetCalibrationUI(const char* text, bool requireCentre, int current, int total)
-{
-    currentState = CALIBRATING;
-    strcpy(currentInstruction, text);
-    needsCentre = requireCentre;
-    progressCurrent = current;
-    progressTotal = total;
+void StopVisualiser() {
+    CloseWindow();
 }
-
-void StopCalibrationUI()
-{
-    currentState = IDLE;
-}
-
-float GetLeftOffset() { return leftOffsetDeg; }
-float GetRightOffset() { return rightOffsetDeg; }
-void SetLeftOffset(float val) { leftOffsetDeg = val; }
-void SetRightOffset(float val) { rightOffsetDeg = val; }
-
-bool CheckCalibrateRight()
-{
-    bool temp = calibrateRightClicked;
-    calibrateRightClicked = false;
-    return temp;
-}
-
-bool CheckCalibrateLeft()
-{
-    bool temp = calibrateLeftClicked;
-    calibrateLeftClicked = false;
-    return temp;
-}
-
 void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float adjLeftY, float rawRightX, float rawRightY, float adjRightX, float adjRightY)
 {
     BeginDrawing();
@@ -369,6 +375,6 @@ void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float a
     EndDrawing();
 }
 
-void StopVisualiser() {
-    CloseWindow();
-}
+
+
+
