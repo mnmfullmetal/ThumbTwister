@@ -5,6 +5,7 @@
 bool GetLeftEnabled();
 bool GetRightEnabled();
 void StartVisualiser();
+void ShowVisualiser();
 bool VisualiserShouldClose();
 float GetLeftOffset();
 float GetRightOffset();

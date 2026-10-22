@@ -1,5 +1,6 @@
 #include <windows.h>
-#include <GameInput.h>
+#define SDL_MAIN_HANDLED
+#include <SDL3/SDL.h>
 #include <ViGEmClient.h>
 #include <iostream>
 #include <cmath>
@@ -16,16 +17,29 @@
 #define ID_TRAY_EXIT 1001
 #define ID_TRAY_OPEN 1002
 
-#pragma comment(lib, "GameInput.lib")
+#pragma comment(lib, "SDL3.lib")
 #pragma comment(lib, "setupapi.lib")
 #pragma comment(lib, "winmm.lib")
 #pragma comment(linker, "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
 
-using namespace GameInput::v3;
-
 static bool isRunning = true;
 static bool windowOpen = true;
 static NOTIFYICONDATA nid = { 0 };
+
+// -- WINDOW HOOK VARS --
+static WNDPROC originalRaylibProc = nullptr;
+static bool closeRequested = false;
+
+// Intercepts the Win32 Close command before Raylib can destroy the window
+LRESULT CALLBACK CustomRaylibProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    if (msg == WM_SYSCOMMAND && (wParam & 0xFFF0) == SC_CLOSE)
+    {
+        closeRequested = true;
+        return 0; // Consume the command
+    }
+    return CallWindowProc(originalRaylibProc, hwnd, msg, wParam, lParam);
+}
 
 void ApplyRotation(float raw_x, float raw_y, float offsetDeg, float& out_x, float& out_y)
 {
@@ -47,33 +61,40 @@ void ApplyRotation(float raw_x, float raw_y, float offsetDeg, float& out_x, floa
     if (out_y > 1.0f) out_y = 1.0f; if (out_y < -1.0f) out_y = -1.0f;
 }
 
-USHORT TranslateButtons(uint32_t giButtons)
+float NormalizeSDLAxis(Sint16 val)
+{
+    if (val < 0) return (float)val / 32768.0f;
+    return (float)val / 32767.0f;
+}
+
+USHORT TranslateButtons(SDL_Gamepad* pad)
 {
     USHORT xusbButtons = 0;
 
     // D-Pad
-    if (giButtons & GameInputGamepadDPadUp)          xusbButtons |= XUSB_GAMEPAD_DPAD_UP;
-    if (giButtons & GameInputGamepadDPadDown)        xusbButtons |= XUSB_GAMEPAD_DPAD_DOWN;
-    if (giButtons & GameInputGamepadDPadLeft)        xusbButtons |= XUSB_GAMEPAD_DPAD_LEFT;
-    if (giButtons & GameInputGamepadDPadRight)       xusbButtons |= XUSB_GAMEPAD_DPAD_RIGHT;
+    if (SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_DPAD_UP))       xusbButtons |= XUSB_GAMEPAD_DPAD_UP;
+    if (SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_DPAD_DOWN))     xusbButtons |= XUSB_GAMEPAD_DPAD_DOWN;
+    if (SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_DPAD_LEFT))     xusbButtons |= XUSB_GAMEPAD_DPAD_LEFT;
+    if (SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_DPAD_RIGHT))    xusbButtons |= XUSB_GAMEPAD_DPAD_RIGHT;
 
     // Start / Select 
-    if (giButtons & GameInputGamepadMenu)            xusbButtons |= XUSB_GAMEPAD_START;
-    if (giButtons & GameInputGamepadView)            xusbButtons |= XUSB_GAMEPAD_BACK;
+    if (SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_START))         xusbButtons |= XUSB_GAMEPAD_START;
+    if (SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_BACK))          xusbButtons |= XUSB_GAMEPAD_BACK;
+    if (SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_GUIDE))         xusbButtons |= XUSB_GAMEPAD_GUIDE;
 
     // Stick Clicks
-    if (giButtons & GameInputGamepadLeftThumbstick)  xusbButtons |= XUSB_GAMEPAD_LEFT_THUMB;
-    if (giButtons & GameInputGamepadRightThumbstick) xusbButtons |= XUSB_GAMEPAD_RIGHT_THUMB;
+    if (SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_LEFT_STICK))    xusbButtons |= XUSB_GAMEPAD_LEFT_THUMB;
+    if (SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_RIGHT_STICK))   xusbButtons |= XUSB_GAMEPAD_RIGHT_THUMB;
 
     // Bumpers
-    if (giButtons & GameInputGamepadLeftShoulder)    xusbButtons |= XUSB_GAMEPAD_LEFT_SHOULDER;
-    if (giButtons & GameInputGamepadRightShoulder)   xusbButtons |= XUSB_GAMEPAD_RIGHT_SHOULDER;
+    if (SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER))    xusbButtons |= XUSB_GAMEPAD_LEFT_SHOULDER;
+    if (SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER))   xusbButtons |= XUSB_GAMEPAD_RIGHT_SHOULDER;
 
     // Face Buttons
-    if (giButtons & GameInputGamepadA)               xusbButtons |= XUSB_GAMEPAD_A;
-    if (giButtons & GameInputGamepadB)               xusbButtons |= XUSB_GAMEPAD_B;
-    if (giButtons & GameInputGamepadX)               xusbButtons |= XUSB_GAMEPAD_X;
-    if (giButtons & GameInputGamepadY)               xusbButtons |= XUSB_GAMEPAD_Y;
+    if (SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_SOUTH))             xusbButtons |= XUSB_GAMEPAD_A;
+    if (SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_EAST))              xusbButtons |= XUSB_GAMEPAD_B;
+    if (SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_WEST))              xusbButtons |= XUSB_GAMEPAD_X;
+    if (SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_NORTH))             xusbButtons |= XUSB_GAMEPAD_Y;
 
     return xusbButtons;
 }
@@ -147,7 +168,8 @@ LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             if (!windowOpen)
             {
                 windowOpen = true;
-                StartVisualiser();
+                closeRequested = false;
+                ShowVisualiser();
                 Shell_NotifyIcon(NIM_DELETE, &nid);
             }
         }
@@ -193,25 +215,94 @@ LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
+
+SDL_Gamepad* AcquirePhysicalController(SDL_JoystickID ignoredVirtualId)
+{
+    int count = 0;
+    SDL_JoystickID* gamepads = SDL_GetGamepads(&count);
+
+    if (gamepads)
+    {
+        for (int i = 0; i < count; ++i)
+        {
+            if (gamepads[i] != ignoredVirtualId)
+            {
+                SDL_Gamepad* pad = SDL_OpenGamepad(gamepads[i]);
+                if (pad)
+                {
+                    SDL_free(gamepads);
+                    return pad;
+                }
+            }
+        }
+        SDL_free(gamepads);
+    }
+    return nullptr;
+}
+
 int main()
 {
 	// enable hidhide device hiding to conceal the physical controller from windows
     SetHidHideState(true);
 
-    // -- GAMEINPUT SETUP --
-    IGameInput* gameInput = nullptr;
-    IGameInputDevice* physicalDevice = nullptr;
-    if (FAILED(GameInputCreate(&gameInput))) return -1;
-    gameInput->SetFocusPolicy(GameInputEnableBackgroundInput);
+    // -- SDL3 INPUT SETUP --
+    SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
+    SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI, "1");
+    SDL_SetHint(SDL_HINT_JOYSTICK_RAWINPUT, "1");
+    SDL_SetHint(SDL_HINT_JOYSTICK_WGI, "0");
+    SDL_SetHint("SDL_JOYSTICK_GAMEINPUT", "0");
 
+    if (!SDL_Init(SDL_INIT_GAMEPAD | SDL_INIT_JOYSTICK))
+    {
+        return -1;
+    }
+
+    // snapshot existing controller IDs before spawning the vigem target
+    SDL_PumpEvents();
+    std::vector<SDL_JoystickID> preVigemIds;
+    int preCount = 0;
+    SDL_JoystickID* joysticks = SDL_GetJoysticks(&preCount);
+    if (joysticks)
+    {
+        for (int i = 0; i < preCount; ++i) preVigemIds.push_back(joysticks[i]);
+        SDL_free(joysticks);
+    }
+
+    
     // -- VIGEM SETUP --
     PVIGEM_CLIENT client = vigem_alloc();
     PVIGEM_TARGET vPad = nullptr;
+    SDL_JoystickID virtualControllerId = -1;
     if (client && VIGEM_SUCCESS(vigem_connect(client)))
     {
         vPad = vigem_target_x360_alloc();
+        if (vPad && VIGEM_SUCCESS(vigem_target_add(client, vPad)))
+        {
+            // detect/ isolate the spawned virtual controllers SDL_JoystickID
+            DWORD startWait = GetTickCount();
+            while (GetTickCount() - startWait < 500 && virtualControllerId == 0)
+            {
+                SDL_PumpEvents();
+                int currentCount = 0;
+                SDL_JoystickID* currentJoysticks = SDL_GetJoysticks(&currentCount);
+                if (currentJoysticks)
+                {
+                    for (int i = 0; i < currentCount; ++i)
+                    {
+                        if (std::find(preVigemIds.begin(), preVigemIds.end(), currentJoysticks[i]) == preVigemIds.end())
+                        {
+                            virtualControllerId = currentJoysticks[i];
+                            break;
+                        }
+                    }
+                    SDL_free(currentJoysticks);
+                }
+                if (virtualControllerId == 0) Sleep(10);
+            }
+        }
     }
-
+    SDL_Gamepad* physicalDevice = AcquirePhysicalController(virtualControllerId);
+     
     // -- SYSTEM TRAY SETUP --
     WNDCLASS wc = { 0 };
     wc.lpfnWndProc = TrayWndProc;
@@ -219,8 +310,7 @@ int main()
     wc.lpszClassName = TEXT("ThumbTwisterTrayClass");
     RegisterClass(&wc);
 
-    // message only window to handle tray icon clicks
-    HWND hwndTray = CreateWindow(TEXT("ThumbTwisterTrayClass"), TEXT("ThumbTwisterTray"), 0, 0, 0, 0, 0, HWND_MESSAGE, NULL, wc.hInstance, NULL);
+    HWND hwndTray = CreateWindow(TEXT("ThumbTwisterTrayClass"), TEXT("ThumbTwisterTray"), 0, 0, 0, 0, 0, NULL, NULL, wc.hInstance, NULL);
 
     // initialise the data structure required by Windows to create the tray icon
     nid.cbSize = sizeof(NOTIFYICONDATA);
@@ -236,6 +326,13 @@ int main()
     CalibrationManager calib;
     StartVisualiser();
 
+    // hook the window so the hide state can be controlled independently
+    HWND raylibWnd = FindWindowA(NULL, "ThumbTwister Visualizer");
+    if (raylibWnd)
+    {
+        originalRaylibProc = (WNDPROC)SetWindowLongPtr(raylibWnd, GWLP_WNDPROC, (LONG_PTR)CustomRaylibProc);
+    }
+
     while (isRunning)
     {
         // process Win32 Messages for the system tray icon and visualiser window
@@ -249,8 +346,18 @@ int main()
 
         if (!isRunning) break;
 
-        IGameInputReading* reading = nullptr;
-        GameInputGamepadState state = {};
+        SDL_PumpEvents();
+
+        // Handle hot-unplugging and reconnection of the physical controller
+        if (physicalDevice && !SDL_GamepadConnected(physicalDevice))
+        {
+            SDL_CloseGamepad(physicalDevice);
+            physicalDevice = nullptr;
+        }
+        if (!physicalDevice)
+        {
+            physicalDevice = AcquirePhysicalController(virtualControllerId);
+        }
 
         if (windowOpen)
         {
@@ -258,29 +365,17 @@ int main()
             if (CheckCalibrateLeft()) calib.Start(true);
             if (CheckCalibrateRight()) calib.Start(false);
         }
-       
+
         float rawLX = 0.0f, rawLY = 0.0f, rawRX = 0.0f, rawRY = 0.0f;
         float adjustedLX = 0.0f, adjustedLY = 0.0f, adjustedRX = 0.0f, adjustedRY = 0.0f;
 
-        if (SUCCEEDED(gameInput->GetCurrentReading(GameInputKindGamepad, physicalDevice, &reading)))
+        if (physicalDevice)
         {
-            // if physical device not locked, capture its pointer from the first valid reading
-            if (physicalDevice == nullptr)
-            {
-                reading->GetDevice(&physicalDevice);
-
-                if (vPad)
-                {
-                    vigem_target_add(client, vPad);
-                }
-            }
-
-            reading->GetGamepadState(&state);
-
-            rawLX = state.leftThumbstickX;
-            rawLY = state.leftThumbstickY;
-            rawRX = state.rightThumbstickX;
-            rawRY = state.rightThumbstickY;
+            // SDL3 Y-axes map to positive-down, requiring inversion for our positive-up logic
+            rawLX = NormalizeSDLAxis(SDL_GetGamepadAxis(physicalDevice, SDL_GAMEPAD_AXIS_LEFTX));
+            rawLY = -NormalizeSDLAxis(SDL_GetGamepadAxis(physicalDevice, SDL_GAMEPAD_AXIS_LEFTY));
+            rawRX = NormalizeSDLAxis(SDL_GetGamepadAxis(physicalDevice, SDL_GAMEPAD_AXIS_RIGHTX));
+            rawRY = -NormalizeSDLAxis(SDL_GetGamepadAxis(physicalDevice, SDL_GAMEPAD_AXIS_RIGHTY));
 
             // feed the stick data to the calibration brain if its active
             if (calib.active)
@@ -312,6 +407,9 @@ int main()
                     return (SHORT)scaled;
                 };
 
+            Sint16 rawTrigL = SDL_GetGamepadAxis(physicalDevice, SDL_GAMEPAD_AXIS_LEFT_TRIGGER);
+            Sint16 rawTrigR = SDL_GetGamepadAxis(physicalDevice, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
+
             // initialise the XUSB report with the final thumbstick, trigger, and button values
             XUSB_REPORT report = { 0 };
             XUSB_REPORT_INIT(&report);
@@ -319,41 +417,42 @@ int main()
             report.sThumbLY = FloatToShort(finalLY);
             report.sThumbRX = FloatToShort(finalRX);
             report.sThumbRY = FloatToShort(finalRY);
-            report.bLeftTrigger = (BYTE)(state.leftTrigger * 255.0f);
-            report.bRightTrigger = (BYTE)(state.rightTrigger * 255.0f);
-            report.wButtons = TranslateButtons(state.buttons);
+            report.bLeftTrigger = (BYTE)((std::max<int>(0, rawTrigL) * 255) / 32767);
+            report.bRightTrigger = (BYTE)((std::max<int>(0, rawTrigR) * 255) / 32767);
+            report.wButtons = TranslateButtons(physicalDevice);
 
             // send the report to the virtual controller
-            if (vPad && physicalDevice) vigem_target_x360_update(client, vPad, report);
-            reading->Release();
+            if (vPad) vigem_target_x360_update(client, vPad, report);
         }
-			// -- UI STATE MANAGEMENT ---
-            if (windowOpen)
-            {
-				// check if visualiser window was closed
-                if (VisualiserShouldClose())
-                {
-                    windowOpen = false;
-                    StopVisualiser(); 
 
-                    // create system tray icon 
-                    Shell_NotifyIcon(NIM_ADD, &nid);
-                }
-                else
-                {
-                    // draw to the screen
-                    DrawControllerState(rawLX, rawLY, adjustedLX, adjustedLY, rawRX, rawRY, adjustedRX, adjustedRY);
-                }
+        // -- UI STATE MANAGEMENT ---
+        if (windowOpen)
+        {
+            // check if visualiser window was closed
+            if (closeRequested)
+            {
+                windowOpen = false;
+                StopVisualiser();
+
+                // create system tray icon 
+                Shell_NotifyIcon(NIM_ADD, &nid);
             }
             else
             {
-                Sleep(1);
+                // draw to the screen
+                DrawControllerState(rawLX, rawLY, adjustedLX, adjustedLY, rawRX, rawRY, adjustedRX, adjustedRY);
             }
-       
+        }
+        else
+        {
+            Sleep(1);
+        }
     }
 
     // --- CLEANUP ---
-    if (physicalDevice) physicalDevice->Release();
+    if (physicalDevice) SDL_CloseGamepad(physicalDevice);
+    SDL_Quit();
+
     Shell_NotifyIcon(NIM_DELETE, &nid);
 
     if (vPad)

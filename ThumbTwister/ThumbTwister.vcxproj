@@ -105,14 +105,14 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>E:\DevLibs\raylib\include;E:\DevLibs\ViGEmClient\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>E:\Visual Studio Projects\ThumbTwister\ThumbTwister\SDL\SDL3-devel-3.4.18-VC\SDL3-3.4.18\include;E:\DevLibs\raylib\include;E:\DevLibs\ViGEmClient\include</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>ViGEmClient.lib;raylib.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>E:\DevLibs\ViGEmClient\lib;E:\DevLibs\raylib\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>E:\DevLibs\ViGEmClient\lib;E:\DevLibs\raylib\lib;%(AdditionalLibraryDirectories);E:\Visual Studio Projects\ThumbTwister\ThumbTwister\SDL\SDL3-devel-3.4.18-VC\SDL3-3.4.18\lib</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -124,14 +124,14 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>E:\Visual Studio Projects\ThumbTwister\ThumbTwister\raylib_stuff\include;E:\DevLibs\ViGEmClient\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>E:\Visual Studio Projects\ThumbTwister\ThumbTwister\SDL\SDL3-devel-3.4.18-VC\SDL3-3.4.18\include;E:\Visual Studio Projects\ThumbTwister\ThumbTwister\raylib_stuff\include;E:\DevLibs\ViGEmClient\include</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>raylib.lib;ViGEmClient.lib;GameInput.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>E:\Visual Studio Projects\ThumbTwister\packages\Microsoft.GameInput.3.3.195\native\lib\x64;E:\DevLibs\ViGEmClient\lib;E:\Visual Studio Projects\ThumbTwister\ThumbTwister\raylib_stuff\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>E:\Visual Studio Projects\ThumbTwister\packages\Microsoft.GameInput.3.3.195\native\lib\x64;E:\DevLibs\ViGEmClient\lib;E:\Visual Studio Projects\ThumbTwister\ThumbTwister\raylib_stuff\lib;%(AdditionalLibraryDirectories);E:\Visual Studio Projects\ThumbTwister\ThumbTwister\SDL\SDL3-devel-3.4.18-VC\SDL3-3.4.18\lib</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>libcmt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
     </Link>

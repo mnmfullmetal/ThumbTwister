@@ -95,6 +95,7 @@ void StartVisualiser()
     InitWindow(1200, 800, "ThumbTwister Visualizer");
     SetTargetFPS(500);
     SetWindowState(FLAG_WINDOW_RESIZABLE);
+    SetExitKey(0);
 
     GuiSetFont(GetFontDefault());
 
@@ -107,8 +108,21 @@ bool VisualiserShouldClose()
 {
     return WindowShouldClose();
 }
-void StopVisualiser() {
-    CloseWindow();
+void StopVisualiser()
+{
+    SetWindowState(FLAG_WINDOW_HIDDEN);
+}
+void DestroyVisualiser()
+{
+    if (IsWindowReady())
+    {
+        CloseWindow();
+    }
+}
+
+void ShowVisualiser()
+{
+    ClearWindowState(FLAG_WINDOW_HIDDEN);
 }
 void DrawControllerState(float rawLeftX, float rawLeftY, float adjLeftX, float adjLeftY, float rawRightX, float rawRightY, float adjRightX, float adjRightY)
 {
